@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Space Race">
+<meta name="theme-color" content="#0b1026">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Space Race Control</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #0b1026; color: #e8ecff; font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial, sans-serif; }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: manipulation; }
+  .hidden { display: none !important; }
+
+  /* Login */
+  #login { display: flex; flex-direction: column; justify-content: center; min-height: 100%; padding: 28px; max-width: 420px; margin: 0 auto; }
+  #login h1 { margin: 0 0 6px; font-size: 28px; }
+  #login p { margin: 0 0 22px; color: #9aa6d6; }
+  input[type=email], input[type=password], input[type=number], select {
+    width: 100%; padding: 14px; margin-bottom: 12px; border-radius: 10px; border: 1px solid #2a3566;
+    background: #151c3d; color: #e8ecff; font-size: 17px;
+  }
+  .primary { width: 100%; padding: 15px; border-radius: 12px; background: #4f7cff; font-weight: 700; font-size: 17px; }
+  .err { color: #ff8a8a; min-height: 22px; margin: 8px 0 0; font-size: 15px; }
+
+  /* App layout */
+  #app { display: flex; flex-direction: column; height: 100%; }
+  header { display: flex; align-items: center; padding: calc(8px + env(safe-area-inset-top)) 10px 8px; background: #10173a; border-bottom: 1px solid #222c5c; }
+  header select { width: auto; margin: 0; padding: 9px 10px; font-size: 16px; font-weight: 700; }
+  #weekLabel { flex: 1; text-align: center; font-size: 15px; color: #b5c0ee; }
+  #conn { width: 12px; height: 12px; border-radius: 50%; background: #e74c3c; margin: 0 12px; flex: none; }
+  #conn.on { background: #2ecc71; }
+  #gear { background: #1c2552; border-radius: 10px; width: 42px; height: 42px; font-size: 20px; }
+
+  #grid { flex: 1; overflow-y: auto; padding: 12px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(84px, 1fr); grid-gap: 10px; }
+  .tbl { position: relative; border-radius: 16px; font-size: 21px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45);
+         display: flex; flex-direction: column; align-items: center; justify-content: center; border: 3px solid transparent; }
+  .tbl small { font-size: 14px; font-weight: 600; opacity: .9; margin-top: 2px; }
+  .tbl.sel { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.35); }
+  .tbl:active { filter: brightness(1.15); }
+
+  /* Reason sheet */
+  #sheet { background: #10173a; border-top: 1px solid #2a3566; padding: 12px 12px 8px; }
+  #sheetTitle { font-size: 18px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  #sheetTitle button { background: #1c2552; border-radius: 8px; padding: 6px 12px; font-size: 14px; }
+  #amounts { display: flex; margin-bottom: 10px; }
+  .amt { flex: 1; margin-right: 8px; padding: 10px 0; border-radius: 10px; background: #1c2552; font-weight: 800; font-size: 18px; }
+  .amt:last-child { margin-right: 0; }
+  .amt.on { background: #4f7cff; }
+  #reasons { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 8px; }
+  .reason { padding: 14px 6px; border-radius: 14px; background: #202a5e; font-size: 17px; font-weight: 700; line-height: 1.25; }
+  .reason span { display: block; font-size: 26px; }
+  .reason small { display: block; font-weight: 500; opacity: .75; font-size: 13px; }
+  .reason:active { background: #3a4a9c; }
+
+  footer { padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); background: #0b1026; }
+  #undo { width: 100%; padding: 15px; border-radius: 14px; background: #3a2230; color: #ffd6d6; font-weight: 700; font-size: 17px; }
+  #undo:disabled { opacity: .4; }
+
+  #toast { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); background: #1f8f4e; color: #fff; padding: 10px 18px;
+           border-radius: 999px; font-weight: 700; font-size: 16px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 92%; text-align: center; z-index: 30; }
+  #toast.show { opacity: 1; }
+  #toast.bad { background: #b33a3a; }
+
+  /* Settings modal */
+  #settings { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(5,8,22,.8); z-index: 20; overflow-y: auto; }
+  #settings .card { margin: 0 auto; max-width: 480px; min-height: 100%; background: #10173a; padding: 16px 16px 40px; }
+  #settings h2 { margin: 0; font-size: 22px; }
+  #settings h3 { margin: 22px 0 8px; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: #9aa6d6; }
+  .setrow { display: flex; align-items: center; margin-bottom: 8px; }
+  .setrow label { flex: 1; font-size: 16px; }
+  .setrow input[type=number] { width: 90px; margin: 0; text-align: center; }
+  .seg { display: flex; }
+  .seg button { padding: 10px 16px; background: #1c2552; font-weight: 700; margin-left: 6px; border-radius: 10px; min-width: 44px; }
+  .seg button.on { background: #4f7cff; }
+  .close { float: right; background: #1c2552; border-radius: 10px; padding: 10px 16px; font-weight: 700; }
+  .danger { width: 100%; margin-top: 18px; padding: 14px; border-radius: 12px; background: #3a2230; color: #ffd6d6; font-weight: 700; }
+  .note { color: #9aa6d6; font-size: 13px; margin: 6px 0 0; }
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="config.js"></script>
+</head>
+<body>
+
+<div id="login">
+  <h1>Space Race Control</h1>
+  <p>Teacher sign-in</p>
+  <input id="email" type="email" autocomplete="username" placeholder="Email">
+  <input id="password" type="password" autocomplete="current-password" placeholder="Password">
+  <button id="signin" class="primary">Sign in</button>
+  <div id="loginErr" class="err"></div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <select id="period" aria-label="Period"></select>
+    <div id="weekLabel">Unit 1 &middot; Week 1</div>
+    <span id="conn" title="Connection"></span>
+    <button id="gear" aria-label="Settings">&#9881;</button>
+  </header>
+
+  <div id="grid"></div>
+
+  <div id="sheet" class="hidden">
+    <div id="sheetTitle"><span id="sheetName"></span><button id="cancel">Cancel</button></div>
+    <div id="amounts"></div>
+    <div id="reasons"></div>
+  </div>
+
+  <footer>
+    <button id="undo" disabled>Nothing to undo</button>
+  </footer>
+</div>
+
+<div id="toast"></div>
+
+<div id="settings" class="hidden">
+  <div class="card">
+    <button class="close" id="closeSettings">Done</button>
+    <h2>Settings</h2>
+
+    <h3>This period</h3>
+    <div class="setrow"><label>Tables</label>
+      <div class="seg" id="tableCountSeg"></div>
+    </div>
+    <div class="setrow"><label>Unit</label>
+      <div class="seg"><button id="unitDown">&minus;</button><button id="unitVal" disabled>1</button><button id="unitUp">+</button></div>
+    </div>
+    <div class="setrow"><label>Week</label>
+      <div class="seg"><button id="weekDown">&minus;</button><button id="weekVal" disabled>1</button><button id="weekUp">+</button></div>
+    </div>
+    <p class="note">Changing the week starts a fresh build on the TV. Old points are kept in the history.</p>
+
+    <h3>Students present (for Friday launch fairness)</h3>
+    <div id="headcounts"></div>
+
+    <h3>This phone</h3>
+    <div class="setrow"><label for="hideTotals">Hide point totals on this screen</label><input type="checkbox" id="hideTotals"></div>
+    <button class="danger" id="signout">Sign out</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var cfg = window.SR_CONFIG;
+  var SYS = cfg.systemOrder;
+  firebase.initializeApp(window.FIREBASE_CONFIG);
+  var db = firebase.database();
+  var auth = firebase.auth();
+
+  function $(id) { return document.getElementById(id); }
+  function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  // ---------- state ----------
+  var period = 1;
+  var state = { unit: 1, week: 1, tableCount: cfg.defaultTableCount };
+  var stateLoaded = false, eventsLoaded = false, pubLoaded = false;
+  var events = {};
+  var pubBuild = {};
+  var headcount = {};
+  var selected = null;
+  var amount = 1;
+  var listeners = [];   // [ref, eventType, handler]
+  var evQuery = null, evHandler = null;
+  var pubTimer = null, toastTimer = null;
+  var attachedWk = null;
+
+  function pk() { return 'p' + period; }
+  function wkKey() { return 'u' + state.unit + 'w' + state.week; }
+
+  // ---------- auth ----------
+  $('email').value = safeGet('sr_email') || '';
+  $('signin').onclick = function () {
+    var em = $('email').value.trim(), pw = $('password').value;
+    if (!em || !pw) { $('loginErr').textContent = 'Enter your email and password.'; return; }
+    $('loginErr').textContent = '';
+    $('signin').disabled = true;
+    auth.signInWithEmailAndPassword(em, pw).then(function () { safeSet('sr_email', em); })
+      .catch(function (e) { $('loginErr').textContent = friendlyAuthError(e); })
+      .then(function () { $('signin').disabled = false; });
+  };
+  $('password').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('signin').click(); });
+  function friendlyAuthError(e) {
+    var c = e && e.code || '';
+    if (c.indexOf('invalid-credential') > -1 || c.indexOf('wrong-password') > -1 || c.indexOf('user-not-found') > -1) return 'Email or password is wrong.';
+    if (c.indexOf('unauthorized-domain') > -1) return 'This site is not an authorized domain in Firebase (Authentication > Settings).';
+    if (c.indexOf('network') > -1) return 'Network problem. Check your connection.';
+    return (e && e.message) || 'Sign-in failed.';
+  }
+  $('signout').onclick = function () { $('settings').classList.add('hidden'); auth.signOut(); };
+
+  auth.onAuthStateChanged(function (user) {
+    if (user) {
+      $('login').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      start();
+    } else {
+      detach();
+      $('app').classList.add('hidden');
+      $('login').classList.remove('hidden');
+      $('password').value = '';
+    }
+  });
+
+  // ---------- period ----------
+  var started = false;
+  function start() {
+    if (!started) {
+      started = true;
+      var sel = $('period');
+      cfg.periods.forEach(function (p) {
+        var o = document.createElement('option'); o.value = p; o.textContent = 'Period ' + p; sel.appendChild(o);
+      });
+      var fromUrl = parseInt(new URLSearchParams(location.search).get('p'), 10);
+      var saved = parseInt(safeGet('sr_period'), 10);
+      period = cfg.periods.indexOf(fromUrl) > -1 ? fromUrl : (cfg.periods.indexOf(saved) > -1 ? saved : cfg.periods[0]);
+      sel.value = period;
+      sel.onchange = function () { setPeriod(parseInt(sel.value, 10)); };
+      db.ref('.info/connected').on('value', function (s) { $('conn').className = s.val() ? 'on' : ''; });
+    }
+    attach();
+  }
+  function setPeriod(p) {
+    period = p; safeSet('sr_period', p);
+    try { history.replaceState(null, '', '?p=' + p); } catch (e) {}
+    closeSheet();
+    attach();
+  }
+
+  // ---------- listeners ----------
+  function watch(ref, type, fn) {
+    ref.on(type, fn, function (err) { toast('Cannot read data: ' + err.message, true); });
+    listeners.push([ref, type, fn]);
+  }
+  function detach() {
+    listeners.forEach(function (l) { l[0].off(l[1], l[2]); });
+    listeners = [];
+    if (evQuery) { evQuery.off('value', evHandler); evQuery = null; }
+    stateLoaded = eventsLoaded = pubLoaded = false;
+    events = {}; pubBuild = {}; headcount = {}; attachedWk = null;
+  }
+  function attach() {
+    detach();
+    state = { unit: 1, week: 1, tableCount: cfg.defaultTableCount };
+    renderAll();
+    var base = pk();
+    watch(db.ref('public/' + base + '/state'), 'value', function (s) {
+      var v = s.val();
+      if (!v) {
+        // First time this period is used: create its public state.
+        db.ref('public/' + base + '/state').set({ unit: 1, week: 1, tableCount: cfg.defaultTableCount, view: 'build' });
+        return;
+      }
+      state = { unit: v.unit || 1, week: v.week || 1, tableCount: v.tableCount || cfg.defaultTableCount };
+      stateLoaded = true;
+      if (attachedWk !== wkKey()) attachEvents();
+      renderAll();
+    });
+    watch(db.ref('public/' + base + '/build'), 'value', function (s) {
+      pubBuild = s.val() || {}; pubLoaded = true; schedulePublish();
+    });
+    watch(db.ref('private/' + base + '/headcount'), 'value', function (s) {
+      headcount = s.val() || {}; renderHeadcounts();
+    });
+  }
+  function attachEvents() {
+    if (evQuery) evQuery.off('value', evHandler);
+    attachedWk = wkKey();
+    eventsLoaded = false; events = {};
+    evQuery = db.ref('private/' + pk() + '/events').orderByChild('wk').equalTo(attachedWk);
+    evHandler = function (s) {
+      events = s.val() || {}; eventsLoaded = true;
+      renderGrid(); renderUndo(); schedulePublish();
+    };
+    evQuery.on('value', evHandler, function (err) { toast('Cannot read points: ' + err.message, true); });
+  }
+
+  // ---------- points -> coarse public stages ----------
+  function totals() {
+    var t = {};
+    Object.keys(events).forEach(function (id) {
+      var e = events[id];
+      if (!t[e.t]) t[e.t] = { fuel: 0, crew: 0, guidance: 0, engines: 0 };
+      t[e.t][e.sys] = (t[e.t][e.sys] || 0) + (e.amt || 0);
+    });
+    return t;
+  }
+  function stageFor(points) {
+    if (points <= 0) return 0;
+    return Math.min(cfg.stages, Math.ceil(points / cfg.pointsPerStage));
+  }
+  function schedulePublish() { clearTimeout(pubTimer); pubTimer = setTimeout(publish, 200); }
+  function publish() {
+    if (!(stateLoaded && eventsLoaded && pubLoaded)) return;
+    var tot = totals(), upd = {}, n = 0;
+    for (var t = 0; t < cfg.maxTables; t++) {
+      SYS.forEach(function (sys) {
+        var stage = stageFor(tot[t] ? tot[t][sys] : 0);
+        var cur = pubBuild['t' + t] && pubBuild['t' + t][sys];
+        if (cur === undefined || cur === null) cur = 0;
+        if (stage !== cur) { upd['t' + t + '/' + sys] = stage; n++; }
+      });
+    }
+    if (n) db.ref('public/' + pk() + '/build').update(upd).catch(function (e) { toast('Could not update TV: ' + e.message, true); });
+  }
+
+  // ---------- awarding ----------
+  function award(t, sys, amt) {
+    var ref = db.ref('private/' + pk() + '/events').push();
+    ref.set({ t: t, sys: sys, amt: amt, wk: wkKey(), ts: firebase.database.ServerValue.TIMESTAMP })
+      .catch(function (e) { toast('Not saved: ' + e.message, true); });
+    db.ref('public/' + pk() + '/ping').set({ t: t, sys: sys, n: Date.now() });
+    if (navigator.vibrate) navigator.vibrate(20);
+    toast(cfg.tables[t].name + ' · ' + cfg.systems[sys].label + ' +' + amt);
+  }
+  function lastEventId() {
+    var best = null, bestTs = -1;
+    Object.keys(events).forEach(function (id) {
+      var ts = typeof events[id].ts === 'number' ? events[id].ts : Number.MAX_SAFE_INTEGER; // unconfirmed local write = newest
+      if (ts >= bestTs) { bestTs = ts; best = id; }
+    });
+    return best;
+  }
+  $('undo').onclick = function () {
+    var id = lastEventId();
+    if (!id) return;
+    var e = events[id];
+    db.ref('private/' + pk() + '/events/' + id).remove().catch(function (er) { toast('Undo failed: ' + er.message, true); });
+    toast('Undid ' + cfg.tables[e.t].name + ' · ' + cfg.systems[e.sys].label + ' +' + e.amt);
+  };
+
+  // ---------- rendering ----------
+  function toast(msg, bad) {
+    var el = $('toast');
+    el.textContent = msg; el.className = 'show' + (bad ? ' bad' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = ''; }, bad ? 4500 : 1800);
+  }
+  function renderAll() { renderHeader(); renderGrid(); renderUndo(); renderSettings(); renderHeadcounts(); }
+  function renderHeader() { $('weekLabel').textContent = 'Unit ' + state.unit + ' · Week ' + state.week; }
+  function renderGrid() {
+    var grid = $('grid'), hide = $('hideTotals').checked, tot = totals();
+    grid.innerHTML = '';
+    if (state.tableCount === 9) grid.style.gridTemplateColumns = '1fr 1fr 1fr'; else grid.style.gridTemplateColumns = '1fr 1fr';
+    for (var i = 0; i < state.tableCount; i++) {
+      (function (i) {
+        var b = document.createElement('button');
+        b.className = 'tbl' + (selected === i ? ' sel' : '');
+        b.style.background = cfg.tables[i].color;
+        b.textContent = cfg.tables[i].name;
+        if (!hide) {
+          var sum = 0; var tt = tot[i];
+          if (tt) SYS.forEach(function (s) { sum += tt[s] || 0; });
+          var sm = document.createElement('small'); sm.textContent = sum + ' pts'; b.appendChild(sm);
+        }
+        b.onclick = function () { selected = i; amount = 1; renderGrid(); openSheet(); };
+        grid.appendChild(b);
+      })(i);
+    }
+  }
+  function openSheet() {
+    if (selected === null) return;
+    $('sheet').classList.remove('hidden');
+    $('sheetName').textContent = 'Award to ' + cfg.tables[selected].name;
+    var am = $('amounts'); am.innerHTML = '';
+    cfg.amounts.forEach(function (a) {
+      var b = document.createElement('button'); b.className = 'amt' + (a === amount ? ' on' : ''); b.textContent = '+' + a;
+      b.onclick = function () { amount = a; openSheet(); };
+      am.appendChild(b);
+    });
+    var rs = $('reasons'); rs.innerHTML = '';
+    SYS.forEach(function (sys) {
+      var d = cfg.systems[sys], b = document.createElement('button'); b.className = 'reason';
+      b.innerHTML = '<span></span>' + '<b></b><small></small>';
+      b.querySelector('span').textContent = d.icon;
+      b.querySelector('b').textContent = d.reason;
+      b.querySelector('small').textContent = d.label;
+      b.onclick = function () { var t = selected; award(t, sys, amount); closeSheet(); };
+      rs.appendChild(b);
+    });
+  }
+  function closeSheet() { selected = null; amount = 1; $('sheet').classList.add('hidden'); renderGrid(); }
+  $('cancel').onclick = closeSheet;
+
+  function renderUndo() {
+    var id = lastEventId(), b = $('undo');
+    if (!id) { b.disabled = true; b.textContent = 'Nothing to undo'; return; }
+    var e = events[id];
+    b.disabled = false;
+    b.textContent = '↩ Undo: ' + cfg.tables[e.t].name + ' · ' + cfg.systems[e.sys].label + ' +' + e.amt;
+  }
+
+  // ---------- settings ----------
+  $('gear').onclick = function () { renderSettings(); renderHeadcounts(); $('settings').classList.remove('hidden'); };
+  $('closeSettings').onclick = function () { $('settings').classList.add('hidden'); };
+  $('hideTotals').checked = safeGet('sr_hide') === '1';
+  $('hideTotals').onchange = function () { safeSet('sr_hide', $('hideTotals').checked ? '1' : '0'); renderGrid(); };
+
+  function setState(patch) {
+    db.ref('public/' + pk() + '/state').update(patch).catch(function (e) { toast('Not saved: ' + e.message, true); });
+  }
+  function renderSettings() {
+    var seg = $('tableCountSeg'); seg.innerHTML = '';
+    [8, 9].forEach(function (n) {
+      var b = document.createElement('button'); b.textContent = n; b.className = state.tableCount === n ? 'on' : '';
+      b.onclick = function () { setState({ tableCount: n }); };
+      seg.appendChild(b);
+    });
+    $('unitVal').textContent = state.unit; $('weekVal').textContent = state.week;
+  }
+  $('unitUp').onclick = function () { if (confirm('Start Unit ' + (state.unit + 1) + '? Week goes back to 1 and rockets reset on the TV.')) setState({ unit: state.unit + 1, week: 1 }); };
+  $('unitDown').onclick = function () { if (state.unit > 1 && confirm('Go back to Unit ' + (state.unit - 1) + '?')) setState({ unit: state.unit - 1, week: 1 }); };
+  $('weekUp').onclick = function () { if (confirm('Start Week ' + (state.week + 1) + '? Rockets reset on the TV.')) setState({ week: state.week + 1 }); };
+  $('weekDown').onclick = function () { if (state.week > 1 && confirm('Go back to Week ' + (state.week - 1) + '?')) setState({ week: state.week - 1 }); };
+
+  function renderHeadcounts() {
+    var box = $('headcounts'); if (!box) return;
+    if (document.activeElement && box.contains(document.activeElement)) return; // do not disturb typing
+    box.innerHTML = '';
+    for (var i = 0; i < state.tableCount; i++) {
+      (function (i) {
+        var row = document.createElement('div'); row.className = 'setrow';
+        var lab = document.createElement('label'); lab.textContent = cfg.tables[i].name;
+        var inp = document.createElement('input'); inp.type = 'number'; inp.min = 0; inp.max = 12; inp.inputMode = 'numeric';
+        var cur = headcount['t' + i]; inp.value = (cur === undefined || cur === null) ? '' : cur; inp.placeholder = '4';
+        inp.onchange = function () {
+          var n = parseInt(inp.value, 10);
+          var ref = db.ref('private/' + pk() + '/headcount/t' + i);
+          if (isNaN(n)) ref.remove(); else ref.set(Math.max(0, Math.min(12, n)));
+        };
+        row.appendChild(lab); row.appendChild(inp); box.appendChild(row);
+      })(i);
+    }
+  }
+})();
+</script>
+</body>
+</html>

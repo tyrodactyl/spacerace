@@ -1,0 +1,8 @@
+{
+  "name": "Space Race Control",
+  "short_name": "Space Race",
+  "start_url": "control.html",
+  "display": "standalone",
+  "background_color": "#0b1026",
+  "theme_color": "#0b1026"
+}

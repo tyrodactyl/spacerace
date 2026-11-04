@@ -1,0 +1,26 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "connectivityTest": {
+      ".read": true,
+      ".write": true
+    },
+
+    "public": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'Q5bjhhHj7mSkpl2tf86WQTe8GcF3'"
+    },
+
+    "private": {
+      ".read": "auth != null && auth.uid === 'Q5bjhhHj7mSkpl2tf86WQTe8GcF3'",
+      ".write": "auth != null && auth.uid === 'Q5bjhhHj7mSkpl2tf86WQTe8GcF3'",
+      "$period": {
+        "events": {
+          ".indexOn": ["wk"]
+        }
+      }
+    }
+  }
+}

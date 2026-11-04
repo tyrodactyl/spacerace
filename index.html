@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space Race</title>
+<style>
+  body { margin: 0; padding: 28px; background: #0b1026; color: #e8ecff; font-family: Arial, Helvetica, sans-serif; max-width: 560px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; } p { color: #9aa6d6; margin: 0 0 22px; }
+  label { display: block; margin-bottom: 8px; }
+  select { padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #2a3566; background: #151c3d; color: #e8ecff; margin-bottom: 22px; }
+  a { display: block; padding: 16px; margin-bottom: 12px; border-radius: 12px; background: #1c2552; color: #e8ecff; text-decoration: none; font-weight: 700; font-size: 18px; }
+  a small { display: block; font-weight: 400; color: #9aa6d6; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h1>Space Race</h1>
+<p>Classroom behavior dashboard</p>
+<label for="p">Period</label>
+<select id="p"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+<a id="tv" href="#">TV display<small>Open on the classroom TV</small></a>
+<a id="ctl" href="#">Phone control<small>Teacher sign-in required</small></a>
+<a href="test.html">Connectivity test<small>Check the TV and network</small></a>
+<script>
+  var sel = document.getElementById('p');
+  function go() {
+    document.getElementById('tv').href = 'display.html?p=' + sel.value;
+    document.getElementById('ctl').href = 'control.html?p=' + sel.value;
+  }
+  sel.onchange = go; go();
+</script>
+</body>
+</html>
