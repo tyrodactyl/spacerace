@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space Race: Connectivity Test</title>
+<style>
+  body { margin: 0; padding: 32px; background: #0b1026; color: #e8ecff; font-family: Arial, Helvetica, sans-serif; font-size: 28px; }
+  h1 { margin: 0 0 8px; font-size: 44px; }
+  p.sub { margin: 0 0 28px; color: #9aa6d6; font-size: 24px; }
+  .row { display: flex; align-items: center; padding: 14px 18px; margin-bottom: 12px; background: #151c3d; border-radius: 10px; }
+  .dot { width: 26px; height: 26px; border-radius: 50%; margin-right: 18px; background: #555; flex: none; }
+  .ok .dot { background: #2ecc71; }
+  .fail .dot { background: #e74c3c; }
+  .wait .dot { background: #f1c40f; }
+  .label { flex: none; width: 520px; }
+  .detail { color: #9aa6d6; font-size: 22px; word-break: break-word; }
+  #summary { margin-top: 24px; padding: 20px; border-radius: 10px; font-size: 32px; background: #151c3d; }
+  #summary.ok { background: #14532d; }
+  #summary.fail { background: #7f1d1d; }
+  pre { color: #9aa6d6; font-size: 20px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Space Race: Connectivity Test</h1>
+<p class="sub">Open this page on the classroom TV, on school Wi-Fi.</p>
+
+<div id="checks"></div>
+<div id="summary">Running checks...</div>
+
+<h2 style="font-size:28px;margin-top:32px">Device info</h2>
+<pre id="device"></pre>
+
+<script src="firebase-config.js"></script>
+<script>
+// Each check gets a row. Status: wait / ok / fail.
+var rows = {};
+function addRow(id, label) {
+  var el = document.createElement('div');
+  el.className = 'row wait';
+  el.innerHTML = '<div class="dot"></div><div class="label"></div><div class="detail">checking...</div>';
+  el.querySelector('.label').textContent = label;
+  document.getElementById('checks').appendChild(el);
+  rows[id] = el;
+}
+function setRow(id, status, detail) {
+  var el = rows[id];
+  el.className = 'row ' + status;
+  el.querySelector('.detail').textContent = detail || '';
+}
+function summarize() {
+  var failed = [], pending = 0;
+  Object.keys(rows).forEach(function (k) {
+    if (rows[k].className.indexOf('fail') > -1) failed.push(k);
+    if (rows[k].className.indexOf('wait') > -1) pending++;
+  });
+  var s = document.getElementById('summary');
+  if (pending) { s.className = ''; s.textContent = 'Running checks...'; return; }
+  if (!failed.length) {
+    s.className = 'ok';
+    s.textContent = 'PASS: everything needed for the dashboard works on this device and network.';
+  } else {
+    s.className = 'fail';
+    s.textContent = 'FAIL: ' + failed.join(', ') + '. Take a photo of this screen and send it to Claude.';
+  }
+}
+function withTimeout(promise, ms, msg) {
+  return new Promise(function (resolve, reject) {
+    var t = setTimeout(function () { reject(new Error(msg || 'timed out')); }, ms);
+    promise.then(function (v) { clearTimeout(t); resolve(v); }, function (e) { clearTimeout(t); reject(e); });
+  });
+}
+function loadScript(src) {
+  return new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = function () { reject(new Error('could not load ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+
+// Device info
+document.getElementById('device').textContent =
+  'User agent: ' + navigator.userAgent + '\n' +
+  'Screen: ' + screen.width + ' x ' + screen.height + '  (window ' + window.innerWidth + ' x ' + window.innerHeight + ', pixel ratio ' + (window.devicePixelRatio || 1) + ')\n' +
+  'Online flag: ' + navigator.onLine + '\n' +
+  'Time: ' + new Date().toString();
+
+addRow('page', '1. Page loaded (github.io)');
+addRow('sdk', '2. Firebase code loads (gstatic.com)');
+addRow('db', '3. Database connection (firebaseio.com)');
+addRow('rw', '4. Write and read back live');
+addRow('anim', '5. Animation speed (frames/sec)');
+
+// 1. Page loaded
+setRow('page', 'ok', 'This page is running from ' + location.host);
+
+// 5. Animation check (simple rAF counter; no Firebase needed)
+(function () {
+  var frames = 0, start = null;
+  function tick(ts) {
+    if (start === null) start = ts;
+    frames++;
+    if (ts - start < 2000) { requestAnimationFrame(tick); return; }
+    var fps = Math.round(frames * 1000 / (ts - start));
+    setRow('anim', fps >= 24 ? 'ok' : 'fail', fps + ' fps' + (fps >= 24 ? '' : ' (low: keep animations simple)'));
+    summarize();
+  }
+  if (window.requestAnimationFrame) requestAnimationFrame(tick);
+  else { setRow('anim', 'fail', 'requestAnimationFrame not supported'); summarize(); }
+})();
+
+// 2-4. Firebase checks
+var V = '10.12.2';
+var base = 'https://www.gstatic.com/firebasejs/' + V + '/';
+withTimeout(loadScript(base + 'firebase-app-compat.js'), 10000, 'timed out loading Firebase')
+  .then(function () { return withTimeout(loadScript(base + 'firebase-database-compat.js'), 10000, 'timed out loading Firebase database code'); })
+  .then(function () {
+    setRow('sdk', 'ok', 'Loaded Firebase ' + V);
+    var cfg = window.FIREBASE_CONFIG;
+    if (!cfg || !cfg.databaseURL || cfg.databaseURL.indexOf('REPLACE') > -1) {
+      throw new Error('Set databaseURL in firebase-config.js');
+    }
+    firebase.initializeApp(cfg);
+    var db = firebase.database();
+
+    // 3. Connection: .info/connected becomes true when the websocket (or long-poll) is up
+    var connected = new Promise(function (resolve) {
+      db.ref('.info/connected').on('value', function (snap) { if (snap.val() === true) resolve(); });
+    });
+    return withTimeout(connected, 15000, 'could not connect to ' + cfg.databaseURL)
+      .then(function () {
+        setRow('db', 'ok', 'Connected to ' + cfg.databaseURL);
+        // 4. Write a timestamp, then read it back through a live listener
+        var ref = db.ref('connectivityTest/lastPing');
+        var stamp = Date.now();
+        var got = new Promise(function (resolve) {
+          ref.on('value', function (snap) { if (snap.val() === stamp) resolve(); });
+        });
+        return withTimeout(ref.set(stamp), 10000, 'write was rejected or timed out (check database rules)')
+          .then(function () { return withTimeout(got, 10000, 'wrote the value but did not see it come back live'); })
+          .then(function () { setRow('rw', 'ok', 'Wrote ' + stamp + ' and received it live'); });
+      }, function (e) {
+        setRow('db', 'fail', e.message);
+        setRow('rw', 'fail', 'skipped (no connection)');
+      });
+  })
+  .catch(function (e) {
+    if (rows.sdk.className.indexOf('wait') > -1) setRow('sdk', 'fail', e.message);
+    else if (rows.db.className.indexOf('wait') > -1) setRow('db', 'fail', e.message);
+    if (rows.db.className.indexOf('wait') > -1) setRow('db', 'fail', 'skipped');
+    if (rows.rw.className.indexOf('wait') > -1) setRow('rw', 'fail', e.message);
+  })
+  .then(summarize);
+</script>
+</body>
+</html>
